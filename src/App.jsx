@@ -1,4 +1,4 @@
-// src/App.jsx - TEMİZ, ÇALIŞIR, iyzico ÖDEME
+// src/App.jsx - TEMİZ, ÇALIŞIR, iyzico ÖDEME - DÜZELTİLMİŞ
 import React from 'react'
 import { useState } from 'react';
 
@@ -22,97 +22,127 @@ const App = () => {
     }
   };
 
-  const removeFromCart = (id) => {
-    setCart(cart.filter(item => item.id !== id));
+  const removeFromCart = (index) => {
+    const newCart = cart.filter((_, i) => i !== index);
+    setCart(newCart);
   };
 
   const total = cart.reduce((sum, item) => sum + item.price, 0);
-const startIyzico = async () => {
-  if (cart.length === 0) return alert('Sepet boş!');
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
-  const totalStr = totalAmount.toFixed(2);
+  const startIyzico = async () => {
+    if (cart.length === 0) return alert('Sepet boş!');
 
-  const basketItems = cart.map(item => ({
-    id: item.id.toString(),
-    name: item.title.substring(0, 100),
-    category1: "Genel",
-    itemType: "VIRTUAL",
-    price: item.price.toFixed(2)
-  }));
+    const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
 
-  const payload = {
-    locale: "tr",
-    conversationId: Date.now().toString(),
-    price: totalStr,
-    paidPrice: totalStr,
-    currency: "TRY",
-    installment: "1",
-    basketId: "B" + Date.now(),
-    paymentGroup: "PRODUCT",
-    callbackUrl: `${window.location.origin}/payment-success.html`,
-    enabledInstallments: [1],
+    // Her sepet öğesine unique ID ve doğru format veriyoruz (fiyatlar STRING olmalı!)
+    const basketItems = cart.map((item, index) => ({
+      id: `BI${Date.now()}${index}`,
+      name: item.title.substring(0, 256),
+      category1: "Genel",
+      itemType: "PHYSICAL",
+      price: item.price.toFixed(2)
+    }));
 
-    buyer: {
-      id: "BY" + Date.now(),
-      name: "Ebru",
-      surname: "Test",
-      gsmNumber: "+905350000000",
-      email: "ebru@example.com",
-      identityNumber: "11111111111",
-      registrationAddress: "Test Adres",
-      ip: "85.34.78.112",
-      city: "Istanbul",
-      country: "Turkey",
-      zipCode: "34000"
-    },
+    const conversationId = `${Date.now()}`;
+    const buyerId = `BY${Date.now()}`;
+    const basketId = `B${Date.now()}`;
 
-    shippingAddress: {
-      contactName: "Ebru Test",
-      city: "Istanbul",
-      country: "Turkey",
-      address: "Test Adres",
-      zipCode: "34000"
-    },
+    const payload = {
+      locale: "tr",
+      conversationId: conversationId,
+      price: totalAmount.toFixed(2),
+      paidPrice: totalAmount.toFixed(2),
+      currency: "TRY",
+      basketId: basketId,
+      paymentGroup: "PRODUCT",
+      callbackUrl: `${window.location.origin}/payment-success.html`,
+      enabledInstallments: [1, 2, 3, 6, 9, 12],
 
-    billingAddress: {
-      contactName: "Ebru Test",
-      city: "Istanbul",
-      country: "Turkey",
-      address: "Test Adres",
-      zipCode: "34000"
-    },
+      buyer: {
+        id: buyerId,
+        name: "Ebru",
+        surname: "Test",
+        gsmNumber: "+905350000000",
+        email: "ebru@example.com",
+        identityNumber: "11111111111",
+        lastLoginDate: "2024-01-01 12:00:00",
+        registrationDate: "2023-01-01 12:00:00",
+        registrationAddress: "Nidakule Göztepe Merdivenköy Mah. Bora Sok. No:1",
+        ip: "85.34.78.112",
+        city: "Istanbul",
+        country: "Turkey",
+        zipCode: "34742"
+      },
 
-    basketItems: basketItems
-  };
+      shippingAddress: {
+        contactName: "Ebru Test",
+        city: "Istanbul",
+        country: "Turkey",
+        address: "Nidakule Göztepe Merdivenköy Mah. Bora Sok. No:1",
+        zipCode: "34742"
+      },
 
-  console.log('GÖNDERİLEN PAYLOAD:', JSON.stringify(payload, null, 2));
+      billingAddress: {
+        contactName: "Ebru Test",
+        city: "Istanbul",
+        country: "Turkey",
+        address: "Nidakule Göztepe Merdivenköy Mah. Bora Sok. No:1",
+        zipCode: "34742"
+      },
 
-  try {
-    const res = await fetch('http://localhost:3001/api/iyzico/initialize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      basketItems: basketItems
+    };
 
-    const data = await res.json();
-    console.log('İYZİCO YANIT:', data);
+    console.log('🚀 GÖNDERİLEN PAYLOAD:', JSON.stringify(payload, null, 2));
+    console.log('📦 Sepet Öğe Sayısı:', basketItems.length);
+    console.log('💰 Toplam Tutar:', totalAmount.toFixed(2), 'TL');
 
-    if (data.status === 'success') {
-      console.log('YÖNLENDİRME BAŞLIYOR...');
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = data.paymentPageUrl;
-      form.innerHTML = data.checkoutFormContent;
-      document.body.appendChild(form);
-      form.submit();
-    } else {
-      alert(`Hata: ${data.errorMessage} (Kod: ${data.errorCode})`);
+    try {
+      const res = await fetch('http://localhost:3001/api/iyzico/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      console.log('📥 İYZİCO YANIT:', data);
+
+      // İyzico success durumunu kontrol et
+      if (data.status === 'success' && data.paymentPageUrl) {
+        console.log('✅ BAŞARILI! Ödeme sayfasına yönlendiriliyor...');
+        console.log('🔗 Payment URL:', data.paymentPageUrl);
+        console.log('🎫 Token:', data.token);
+        
+        // İyzico'nun ödeme sayfasına yönlendir
+        // checkoutFormContent varsa onu kullan, yoksa direkt URL'e git
+        if (data.checkoutFormContent) {
+          // Form içeriğini kullan
+          const div = document.createElement('div');
+          div.innerHTML = data.checkoutFormContent;
+          document.body.appendChild(div);
+          const form = div.querySelector('form');
+          if (form) {
+            form.submit();
+          } else {
+            // Form yoksa direkt URL'e yönlendir
+            window.location.href = data.paymentPageUrl;
+          }
+        } else if (data.paymentPageUrl) {
+          // Direkt URL'e yönlendir
+          window.location.href = data.paymentPageUrl;
+        }
+      } else {
+        // Hata durumunda detaylı bilgi göster
+        console.error('❌ HATA:', data);
+        const errorMsg = data.errorMessage || 'Bilinmeyen hata';
+        const errorCode = data.errorCode || 'N/A';
+        alert(`Ödeme başlatılamadı!\n\nHata: ${errorMsg}\nKod: ${errorCode}\n\nLütfen tekrar deneyin.`);
+      }
+    } catch (err) {
+      console.error('🔥 SUNUCU HATASI:', err);
+      alert('Sunucu ile bağlantı kurulamadı: ' + err.message + '\n\nLütfen backend sunucusunun çalıştığından emin olun.');
     }
-  } catch (err) {
-    alert('Sunucu hatası: ' + err.message);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-[#cae6d5] bg-cover bg-center bg-no-repeat font-serif">
@@ -127,6 +157,7 @@ const startIyzico = async () => {
         <button
           onClick={() => setShowCart(true)}
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition mr-4"
+          data-testid="cart-button"
         >
           Sepete Git ({cart.length})
         </button>
@@ -152,6 +183,7 @@ const startIyzico = async () => {
             <button
               className="mt-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
               onClick={() => handleAddToBasket(p.title)}
+              data-testid={`add-to-cart-${p.id}`}
             >
               Sepete Ekle
             </button>
@@ -165,11 +197,11 @@ const startIyzico = async () => {
 
       {/* SEPET MODAL */}
       {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" data-testid="cart-modal">
           <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-screen overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Sepetim ({cart.length})</h2>
-              <button onClick={() => setShowCart(false)} className="text-2xl">&times;</button>
+              <button onClick={() => setShowCart(false)} className="text-2xl" data-testid="close-cart">&times;</button>
             </div>
 
             {cart.length === 0 ? (
@@ -180,19 +212,27 @@ const startIyzico = async () => {
                   <div key={i} className="flex justify-between items-center border-b py-2">
                     <span>{item.title}</span>
                     <span className="font-semibold">{item.price.toFixed(2)} TL</span>
-                    <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-sm">Kaldır</button>
+                    <button 
+                      onClick={() => removeFromCart(i)} 
+                      className="text-red-500 text-sm"
+                      data-testid={`remove-item-${i}`}
+                    >
+                      Kaldır
+                    </button>
                   </div>
                 ))}
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex justify-between text-xl font-bold">
                     <span>Toplam:</span>
-                    <span>{total.toFixed(2)} TL</span>
+                    <span data-testid="cart-total">{total.toFixed(2)} TL</span>
                   </div>
                   <button
                     onClick={startIyzico}
                     className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold"
+                    data-testid="payment-button"
                   >
                     Ödeme Yap (iyzico)
+                    
                   </button>
                 </div>
               </>
